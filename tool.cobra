@@ -1,0 +1,323 @@
+use Gtk
+use System.Reflection
+
+sig OpenEventHandler(sender as System.Object, e as OpenEventArgs)
+class OpenEventArgs inherits EventArgs
+	var file as String
+	cue init(path as String)
+		base.init
+		.file = path
+
+sig ProjectEventHandler(sender as System.Object, e as ProjectEventArgs)
+class ProjectEventArgs inherits EventArgs
+	var file as String
+	cue init(path as String)
+		base.init
+		.file = path
+
+class Tools inherits Toolbar
+	event refreshEditor as EventHandler
+	event projectEvent as ProjectEventHandler
+	event openEvent as OpenEventHandler
+	event saveEvent as EventHandler
+	event saveallEvent as EventHandler
+	#event build as EventHandler
+	event runEvent as EventHandler
+	event stopEvent as EventHandler
+	#event debug as EventHandler
+	pro runCmd from var as Command
+	var _buildCmd as Command
+	var isRunning = false
+	var isBuilding = false
+	var _build as ToolButton
+	var _run as ToolButton
+	var _stopp as ToolButton
+	var _debug as ToolButton
+	var parentW as Window
+	var currentFile as String?
+	
+	cue init(parent as Window)
+		base.init
+		.parentW = parent
+		.toolbarStyle = ToolbarStyle.Both
+		_runCmd = Command()
+		_buildCmd = Command()
+		listen _buildCmd.finishedEvent, ref .buildFinished
+		listen _runCmd.finishedEvent, ref .runFinished
+		icons = Assembly.loadFrom("icons.dll")
+		sep = SeparatorToolItem()
+		sepm = SeparatorMenuItem()
+		project = ToolButton(Image(icons,"prj.png"),"Project")
+		open = ToolButton(Image(icons,"open.png"),"Open")
+		save = ToolButton(Image(icons,"save.png"),"Save")
+		saveall = ToolButton(Image(icons,"saveall.png"),"SaveAll")
+		view = MenuToolButton(Image(icons,"edit.png"),"View")
+		_build = ToolButton(Image(icons,"build.png"),"Build")
+		_run = MenuToolButton(Image(icons,"run.png"),"Run")
+		_stopp = ToolButton(Image(icons,"stop.png"),"Stop")
+		_debug = ToolButton(Image(icons,"debug.png"),"Debug")
+		options = MenuToolButton(Image(icons,"options.png"),"Options")
+		style = MenuToolButton(Image(icons,"style.png"),"Style")
+		_stopp.sensitive = false
+		listen project.clicked, ref .project
+		listen open.clicked, ref .open
+		listen save.clicked, ref .save
+		listen saveall.clicked, ref .saveall
+		listen _build.clicked, ref .build
+		listen _run.clicked, ref .run
+		listen _stopp.clicked, ref .stopp
+
+		#View Menu
+		menu = Menu()
+		item = MenuItem()
+		button = ProgressBar()
+        button.pulse
+		item.add(button)
+		menu.append(item)
+		
+		showEolMarkers = CheckMenuItem("Show EolMarkers")
+		showFoldMargin = CheckMenuItem("Show FoldMargin")
+		showIconMargin = CheckMenuItem("Show IconMargin")
+		showInvalidLines = CheckMenuItem("Show InvalidLines")
+		showLineNumberMargin = CheckMenuItem("Show LineNumberMargin")
+		showRuler = CheckMenuItem("Show Ruler")
+		showSpaces = CheckMenuItem("Show Spaces")
+		showTabs = CheckMenuItem("Show Tabs")
+		tabsToSpaces = CheckMenuItem("Tabs To Spaces")
+		highlightCaretLine = CheckMenuItem("Highlight CaretLine")
+		removeTrailingWhitespaces = CheckMenuItem("Remove Trailing Whitespaces")
+		
+		#Test
+		#gg = ToggleToolButton("togg")
+		#gg.iconWidget = Image(icons,"prj.png")
+		#update = ImageMenuItem("Update")
+		#update.image = Image(icons,"update.png")
+		#help = ImageMenuItem("Help")
+		#help.image = Image(icons,"help.png")
+		#tt = TearoffMenuItem()
+		#menu.append(mm)
+		#menu.append(tt)
+		#Frame()
+		
+		#Initializing the values of CheckMenuItems from Config
+		showEolMarkers.active = Config.showEolMarkers
+		showFoldMargin.active = Config.showFoldMargin
+		showIconMargin.active = Config.showIconMargin
+		showInvalidLines.active = Config.showInvalidLines
+		showLineNumberMargin.active = Config.showLineNumberMargin
+		showRuler.active = Config.showRuler
+		showSpaces.active = Config.showSpaces
+		showTabs.active = Config.showTabs
+		tabsToSpaces.active = Config.tabsToSpaces
+		highlightCaretLine.active = Config.highlightCaretLine
+		removeTrailingWhitespaces.active = Config.removeTrailingWhitespaces
+		
+		#Connecting all the CheckMenuItems to functions
+		listen showEolMarkers.toggled, ref .showEolMarkers
+		listen showFoldMargin.toggled, ref .showFoldMargin
+		listen showIconMargin.toggled, ref .showIconMargin
+		listen showInvalidLines.toggled, ref .showInvalidLines
+		listen showLineNumberMargin.toggled, ref .showLineNumberMargin
+		listen showRuler.toggled, ref .showRuler
+		listen showSpaces.toggled, ref .showSpaces
+		listen showTabs.toggled, ref .showTabs
+		listen tabsToSpaces.toggled, ref .tabsToSpaces
+		listen highlightCaretLine.toggled, ref .highlightCaretLine
+		listen removeTrailingWhitespaces.toggled, ref .removeTrailingWhitespaces
+		
+		#Appending all the CheckMenuItems to menu
+		menu.append(sepm)
+		menu.append(showEolMarkers)
+		menu.append(showFoldMargin)
+		menu.append(showIconMargin)
+		menu.append(showInvalidLines)
+		menu.append(showLineNumberMargin)
+		menu.append(showRuler)
+		menu.append(showSpaces)
+		menu.append(showTabs)
+		menu.append(tabsToSpaces)
+		menu.append(highlightCaretLine)
+		menu.append(removeTrailingWhitespaces)
+		view.menu = menu
+		menu.showAll
+		
+		#Style Menu
+		menu2 = Menu()
+		item0 = RadioMenuItem("Default")
+		item0.drawAsRadio = false
+		item0.active = true
+		item1 = RadioMenuItem(item0,"TangoLight")
+		item2 = RadioMenuItem(item0,"Visual Studio")
+		item3 = RadioMenuItem(item0,"IrBlack")
+		item4 = RadioMenuItem(item0,"GEdit")
+		item5 = RadioMenuItem(item0,"Show Ruler")
+		item6 = RadioMenuItem(item0,"Brown")
+		item7 = RadioMenuItem(item0,"C64")
+		item8 = RadioMenuItem(item0,"Oblivion")
+		#item9 = CheckMenuItem("Custom") # File Selector Must revert that list which i deleted use diff
+		
+		listen item0.toggled, ref .setDefa
+		menu2.append(item0)
+		menu2.append(item1)
+		menu2.append(item2)
+		menu2.append(item3)
+		menu2.append(item4)
+		menu2.append(item5)
+		menu2.append(item6)
+		menu2.append(item7)
+		menu2.append(item8)
+		style.menu = menu2
+		menu2.showAll
+		
+		#Options Menu
+		menu3 = Menu()
+		optItem0 = MenuItem()
+		entry = Entry("hello world")
+		entry.isEditable = true
+		optItem0.add(entry)
+		optItem1 = MenuItem()
+		hscale = HScale(10, 50, 5)
+		hscale.value = 25
+		#hscale.valueChanged
+		optItem1.add(hscale)
+		menu3.append(optItem0)
+		menu3.append(optItem1)
+		options.menu = menu3
+		menu3.showAll
+		
+		.insert(project, 0)
+		.insert(open, 1)
+		.insert(save, 2)
+		.insert(saveall, 3)
+		.insert(sep, 4)
+		.insert(view, 5)
+		.insert(_build, 6)
+		.insert(_run, 7)
+		.insert(_stopp, 8)
+		.insert(_debug, 9)
+		.insert(sep, 10)
+		.insert(options, 11)
+		.insert(style, 11)
+		
+	def project(sender, e)
+		fcd = FileChooserDialog("Choose the file to open",.parentW,FileChooserAction.SelectFolder,"Cancel",ResponseType.Cancel,"Open",ResponseType.Accept)
+		if fcd.run == ResponseType.Accept to int
+			path = fcd.filename
+			raise .projectEvent, ProjectEventArgs(path)
+		fcd.destroy
+		#FileChooserAction.CreateFolder, FileChooserAction.Save
+		
+	def open(sender, e)
+		fcd = FileChooserDialog("Choose the file to open",.parentW,FileChooserAction.Open,"Cancel",ResponseType.Cancel,"Open",ResponseType.Accept)
+		if fcd.run == ResponseType.Accept to int
+			path = fcd.filename
+			raise .openEvent, OpenEventArgs(path)
+		fcd.destroy
+		
+	def build(sender, e)
+		#raise .runEvent, EventArgs()
+		.isBuilding = true
+		_stopp.sensitive = true
+		_build.sensitive = false
+		_run.sensitive = false
+		_buildCmd.start
+		
+	def run(sender, e)
+		raise .runEvent, EventArgs()
+		
+	def fileSetRun(sender, e as CurrentFileEventArgs)
+		print e.file
+		.isRunning = true
+		_stopp.sensitive = true
+		_build.sensitive = false
+		_run.sensitive = false
+		#_runCmd.start
+		
+	def stopp(sender, e)
+		.close
+		raise .stopEvent, EventArgs()
+		
+	def close
+		if .isBuilding
+			_buildCmd.close
+			.isBuilding = false
+			_stopp.sensitive = false
+			_build.sensitive = true
+			_run.sensitive = true
+		if .isRunning
+			_runCmd.close
+			.isRunning = false
+			_stopp.sensitive = false
+			_build.sensitive = true
+			_run.sensitive = true
+		
+	def buildFinished(sender, e)
+		.isBuilding = false
+		_stopp.sensitive = false
+		_build.sensitive = true
+		_run.sensitive = true
+		
+	def runFinished(sender, e)
+		.isRunning = false
+		_stopp.sensitive = false
+		_build.sensitive = true
+		_run.sensitive = true
+		
+	def save(sender, e)
+		raise .saveEvent, EventArgs()
+	
+	def saveall(sender, e)
+		raise .saveallEvent, EventArgs()
+		
+	
+	# View Functions	
+	def onRefreshEditor
+		raise .refreshEditor, EventArgs()
+		
+	def showEolMarkers(sender, e)
+		Config.showEolMarkers = sender.active
+		.onRefreshEditor
+		
+	def showFoldMargin(sender, e)
+		Config.showFoldMargin = sender.active
+		.onRefreshEditor
+		
+	def showIconMargin(sender, e)
+		Config.showIconMargin = sender.active
+		.onRefreshEditor
+		
+	def showInvalidLines(sender, e)
+		Config.showInvalidLines = sender.active
+		.onRefreshEditor
+		
+	def showLineNumberMargin(sender, e)
+		Config.showLineNumberMargin = sender.active
+		.onRefreshEditor
+		
+	def showRuler(sender, e)
+		Config.showRuler = sender.active
+		.onRefreshEditor
+		
+	def showSpaces(sender, e)
+		Config.showSpaces = sender.active
+		.onRefreshEditor
+		
+	def showTabs(sender, e)
+		Config.showTabs = sender.active
+		.onRefreshEditor
+		
+	def tabsToSpaces(sender, e)
+		Config.tabsToSpaces = sender.active
+		.onRefreshEditor
+		
+	def highlightCaretLine(sender, e)
+		Config.highlightCaretLine = sender.active
+		.onRefreshEditor
+		
+	def removeTrailingWhitespaces(sender, e)
+		Config.removeTrailingWhitespaces = sender.active
+		.onRefreshEditor
+		
+	def setDefa(sender, e)
+		print "0"
+		print sender.active

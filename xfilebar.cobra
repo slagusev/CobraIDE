@@ -1,0 +1,22 @@
+use Gtk
+use System.Reflection
+
+class XFileBar inherits HBox
+	var projectIcon as Gdk.Pixbuf
+	var dirIcon as Gdk.Pixbuf
+	var fileIcon as Gdk.Pixbuf
+	var label as Label
+	var file as String
+	cue init
+		base.init
+		.homogeneous = false
+		.spacing = 5
+		.heightRequest = 10
+		icons = Assembly.loadFrom("icons.dll")
+		.projectIcon = Gdk.Pixbuf(icons,"prj.png")
+		.dirIcon = Gdk.Pixbuf(icons,"folder.png")
+		.fileIcon = Gdk.Pixbuf(icons,"file.png")
+		#arrow = Arrow(ArrowType.Right, ShadowType.In)#Etched.In
+		.file = "This"
+		.label = Label(.file)
+		.add(.label)

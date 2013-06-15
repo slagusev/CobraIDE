@@ -1,0 +1,12 @@
+use System
+use System.Runtime.InteropServices
+
+class Program
+	cue init
+		base.init
+
+	def rss(file_name as IntPtr ,error as out IntPtr)as int is shared,extern
+		has DllImport("librsvg-2-2.dll")
+		
+	def main is shared
+		Program()

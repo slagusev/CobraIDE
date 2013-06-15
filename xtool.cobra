@@ -1,0 +1,57 @@
+use Gtk
+use System.Reflection
+
+class XButton inherits VBox
+	var btn as Button
+	var lab as Label
+	cue init(image as Image, text as String)
+		base.init
+		col = Gdk.Color(0, 0, 150)
+		.modifyBg(StateType.Normal, col)
+		.modifyBase(StateType.Normal, col)
+		.btn = Button()
+		.btn.image = image
+		.btn.relief = ReliefStyle.None
+		.btn.canFocus = false
+		.lab = Label()
+		.lab.text = text
+		.packStart(.btn, false, false,0)
+		.packStart(.lab, false, false,0)
+	
+class XTool inherits HBox
+	var combo as ComboBox?
+	var run as XButton
+	var todo as XButton
+	var spinlab as Label
+	var spinner as SpinButton
+	var xlcd as XLcd
+	cue init(width as uint)
+		base.init
+		.homogeneous = false
+		.spacing = 5
+		.xlcd = XLcd()
+		#.heightRequest = 40
+		icons = Assembly.loadFrom("icons.dll")
+		.combo = ComboBox.newText
+		.combo.appendText("Debug")
+		.combo.appendText("Release")
+		#combo.changed
+		.run = XButton(Image(icons,"run.png"),"Run")
+		.todo = XButton(Image(icons,"todo.png"),"Todo")
+		.spinlab = Label()
+		.spinlab.text = "Explorer Width: "
+		.spinner = SpinButton(0, 50, 1)
+		calign = Alignment(1, 0.5f32, 0, 0)
+		calign.add(.combo)
+		.packStart(.run, false, false, 5)
+		.packStart(.todo, false, false, 10)
+		.packStart(calign, false, false, 15)
+		pad as uint= (.combo.sizeRequest.width + 344/4) to uint
+		.packStart(.xlcd, false, false, width - 30 -20 - 20 - pad)
+		#.packStart(.spinlab, false, false, 10)
+		#.packStart(.spinner, false, false, 10)
+		
+	def onComboBoxChanged(sender, e)
+		iter = TreeIter()
+		if .combo.getActiveIter(out iter)
+			print .combo.model.getValue(iter, 0)

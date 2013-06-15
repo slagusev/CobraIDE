@@ -1,0 +1,37 @@
+use Gtk
+
+class Output inherits ScrolledWindow
+	var buffer as TextBuffer?
+	cue init
+		base.init
+		.heightRequest = 20
+		.setPolicy(PolicyType.Automatic,PolicyType.Automatic)
+		tagTable = TextTagTable()
+		tag = TextTag("Red")
+		tag.size = 25
+		#tag.background = "#000000"
+		tagTable.add(tag)
+		.buffer = TextBuffer(tagTable)#textView.buffer
+		textView = TextView(.buffer)
+		textView.editable = false
+		textView.cursorVisible = false
+		textView.wrapMode = WrapMode.WordChar#Word
+		.add(textView)
+		#.hide
+		#.buffer.applyTag("Red", .buffer.startIter, .buffer.endIter)
+		#tagBold  = TextTag("bold"); 
+        #tagBold.weight = Pango.Weight.Bold 
+        #buffer.TagTable .Add (tagBold); 
+		#iter1 = buffer.getIterAtOffset(3)
+        #iter2 = buffer.getIterAtOffset(6)
+        #buffer.applyTag(tagBold, iter1, iter2)
+
+	def append(sender, e as CommandDataEventArgs)
+		Application.invoke(do)
+			.buffer.insertAtCursor(e.data+"\n")
+		#gg = .buffer.endIter
+		#.buffer.insertWithTagsByName(inout gg,e.data+"\n","Red")
+		#.buffer.applyTag("Red", .buffer.startIter, .buffer.endIter)
+
+	def clear(sender, e)
+		.buffer.clear

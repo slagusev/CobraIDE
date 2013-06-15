@@ -1,0 +1,96 @@
+#@args -pkg:gtk-sharp-2.0 -pkg:mono-cairo -turbo
+@number float
+@ref 'System.Drawing'
+use Gtk
+use GLib
+use Cairo
+
+class XLcd inherits DrawingArea
+	cue init
+		base.init
+		.setSizeRequest(344, 46)
+		listen .exposeEvent, ref .onExpose
+
+	def onExpose(sender, e)
+        cr =  Gdk.CairoHelper.create(.gdkWindow)
+		width = 344#.allocation.width
+        height = 46#.allocation.height
+		.drawRoundedRectangle(cr, 0, 0, width,height, 5)
+		cr.color =.c("#606060") #offset 3 top line len = width -3
+		#cr.color =.c("#919191") #offset 3 bottom line len = width -3
+		cr.lineWidth = 1
+		cr.stroke
+		cr.color = .c("#bac3c8") #offset 5
+		.drawRoundedRectangle(cr, 1, 1, width-1,height-1, 5)
+		cr.lineWidth = 1
+		cr.stroke
+		colortable1 = @["#f0f8ff","#eff7ff","#f0f8fd","#eff6fb","#eef6fa","#edf4f8","#ebf1f7","#e9f0f6","#e4edf3","#e3ebf2","#e0e9f1","#d6dee3","#d7dde3","#d6dde2","#d6dce2","#d5dce2","#d5dbe1","#d4dbe2","#d2dbe2","#cfdae3","#cdd8e4"]
+		colortable2 = @["#e8f1f9","#eaf1f8","#eaf0f6","#e9eff4","#e8eef3","#e6edf1","#e4eaf0","#e1e9ef","#dde7ec","#dbe5eb","#d1d9dd","#d1d9dd","#d1d8dc","#d1d7dd","#d1d8dc","#d1d7dd","#d0d7dc","#cfd6dd","#ced6dd","#cbd5dd","#c9d3de","#c7d2de"]
+		for i in 0:colortable1.length
+			dy = 2*i
+			cr.color = .c(colortable1[i]) 
+			cr.moveTo(2, 2+dy)
+			cr.lineTo(width, 2+dy)
+			cr.stroke
+		for i in 0:colortable2.length
+			dy = 2*i
+			cr.color = .c(colortable2[i])
+			cr.moveTo(2, 3+dy)
+			cr.lineTo(width, 3+dy)
+			cr.stroke
+		cr.color =.c("#000000")
+		cr.lineWidth = 1
+		cr.moveTo(5, height/2)
+		cr.lineTo(width- 10, height/2)
+		#cr.stroke
+		cr.selectFontFace("Courier 10 Pitch",FontSlant.Normal, FontWeight.Normal)
+        cr.setFontSize(10)
+		extents = cr.textExtents("Build")
+		cr.moveTo(width/2 - extents.width, height/4)
+		cr.showText("Build")
+        (cr.target to IDisposable).dispose                              
+        (cr to IDisposable).dispose
+		
+	def c(html as String) as Color
+		dcol = System.Drawing.ColorTranslator.fromHtml(html)
+		return Color(dcol.r/255.0,dcol.g/255.0,dcol.b/255.0,1)
+
+	def min(arr as float[]) as float
+		minp = 0
+		for i in  1:arr.length
+			if arr[i] < arr[minp]
+				minp = i
+		return arr[minp]
+
+	def drawRoundedRectangle(gr as Context?, x as float, y as float, width as float, height as float, radius as float)
+		gr.save
+		if (radius > height / 2) or (radius > width / 2)
+			radius = .min(@[height / 2, width / 2])
+		gr.moveTo(x, y + radius)
+		gr.arc(x + radius, y + radius, radius, Math.pi, -Math.pi / 2)
+		gr.lineTo(x + width - radius, y)
+		gr.arc(x + width - radius, y + radius, radius, -Math.pi / 2, 0)
+		gr.lineTo(x + width, y + height - radius)
+		gr.arc(x + width - radius, y + height - radius, radius, 0, Math.pi / 2)
+		gr.lineTo(x + radius, y + height)
+		gr.arc(x + radius, y + height - radius, radius, Math.pi / 2, Math.pi)
+		gr.closePath
+		gr.restore	
+
+/#
+	def main is shared has STAThread
+		Application.init
+		win = Window("Win")
+		win.resize(200, 120)
+		#box = HBox(false,0)
+		#box.add(Label("tst"))
+		#box.add(XLcdBox())
+		#box.add(XLcd())
+		win.add(XLcd())
+		win.showAll
+		listen win.deleteEvent, ref .onQuit
+		Application.run
+
+	def onQuit(sender, e) is shared
+		Application.quit
+#/

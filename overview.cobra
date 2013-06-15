@@ -1,0 +1,66 @@
+use Gtk
+use Mono.TextEditor
+use Mono.TextEditor.Highlighting
+use System.Xml
+use System.IO
+use Mono.TextEditor
+
+class OverView inherits HBox
+	var _file as String
+	var edt as TextEditor
+	cue init
+		base.init
+		_file = "None"
+		.widthRequest = 85
+		.heightRequest = 90
+		.borderWidth = 5
+		# Readme
+		vbox1 = VBox() 
+		scroll = ScrolledWindow()
+		scroll.setPolicy(PolicyType.Automatic,PolicyType.Automatic)
+		.edt = TextEditor()
+		scroll.add(.edt)
+		vbox1.add(scroll)
+
+		# Properties
+		vbox2 = VBox()
+		vbox2.add(Label("Properties"))
+		listen .edt.document.documentUpdated, ref .setDirty
+		.packStart(vbox1, true, true, 0)
+		.packStart(vbox2, false, false, 0)
+
+		
+	def onShow(file as String)
+		_file = Path.combine(file,"README.md")
+		if System.IO.File.exists(_file)
+			.load
+		else
+			pass #create file
+		.show
+
+	def load
+        try
+            contents = System.IO.File.readAllText(_file)
+        catch ioe as IOException
+            Error('I/O Error: [ioe.message]')
+        success
+			#print "Loaded File"
+			.edt.document.text = contents
+
+	def save
+        try
+			System.IO.File.writeAllText(_file, .edt.document.text)
+        catch ioe as IOException
+            Error('I/O Error: [ioe.message]')
+        success
+			pass
+
+	def setDirty(sender, e)
+		if .edt.document.isDirty
+			.save
+
+			
+
+			
+
+			

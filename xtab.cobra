@@ -1,0 +1,128 @@
+use Gtk
+use System.Reflection
+use System.IO
+
+sig CurrentFileEventHandler(sender as System.Object, e as CurrentFileEventArgs)
+class CurrentFileEventArgs inherits EventArgs
+	var file as String
+	cue init(path as String)
+		base.init
+		.file = path
+
+sig AddFileEventHandler(sender as System.Object, e as AddFileEventArgs)
+class AddFileEventArgs inherits EventArgs
+	var file as String
+	cue init(path as String)
+		base.init
+		.file = path
+
+sig ChangeFileEventHandler(sender as System.Object, e as ChangeFileEventArgs)
+class ChangeFileEventArgs inherits EventArgs
+	var file as String
+	cue init(path as String)
+		base.init
+		.file = path
+
+class XTabClose inherits EventBox
+	cue init
+		base.init
+		icons = Assembly.loadFrom("icons.dll")
+		img = Image(icons,"close.png")
+		.visibleWindow = false
+		.visible = true
+		.aboveChild = true
+		.hasFocus = true
+		.canFocus = true
+		.canDefault = true
+		.isFocus = true
+		.show
+		.add(img)
+		#col = Gdk.Color(255, 0, 0)
+		#evtBox.modifyBg(StateType.Normal, col)
+		#.focusInEvent
+		#.focusOutEvent
+		#.focussed
+		#.focussGrabbed
+		#img.sensitive = false
+
+class XTabLabel inherits EventBox
+	var file as String
+	var label as Label
+	var btn as XTabClose
+	var hbox as HBox
+	cue init(file as String)
+		base.init
+		.hasFocus = true
+		.canFocus = true
+		.canDefault = true
+		.isFocus = true
+		.heightRequest = 30
+		#.widthRequest = 150
+		.file = file
+		text = Path.getFileName(.file)
+        .label = Label()
+		.label.text = "<b>"+text+"</b>"
+		.label.useMarkup = true
+		.btn = XTabClose()
+		.hbox =HBox(false,0)
+		.hbox.spacing = 10
+		.hbox.packStart(.label,true,true,0)
+		.hbox.packStart(.btn,false,false,0)
+		.add(.hbox)
+		listen .enterNotifyEvent, ref .enter
+		listen .leaveNotifyEvent, ref .leave
+        .showAll
+		.btn.hide
+		
+	def enter(sender, e)
+		col = Gdk.Color(255, 0, 0)
+		.label.modifyFg(StateType.Normal, col)
+		.btn.show
+
+	def leave(sender, e)
+		col = Gdk.Color(0, 0, 0)
+		.label.modifyFg(StateType.Normal, col)
+		.btn.hide
+
+	def setText(text as String?)
+		if text <> nil
+			.label.text = text
+
+class XTab inherits HBox
+	var tabList = []
+	event changeFile as ChangeFileEventHandler
+	cue init
+		base.init
+		.spacing = 10
+		.heightRequest = 30
+		#.homogeneous = true
+		rc = RcStyle()
+		rc.xthickness = 0
+		rc.ythickness = 0
+		.modifyStyle(rc)
+
+	def addFile(sender, e as CurrentFileEventArgs)
+		.addTab(e.file)
+
+	def addTab(path as String?)
+		if path is not nil
+			if System.IO.File.exists(path)
+				tlab = XTabLabel(path)
+				listen tlab.buttonPressEvent, ref .changeTab
+				listen tlab.btn.buttonPressEvent, ref .closeTab
+				.packStart(tlab,false,false,0)
+				.tabList.add(tlab)
+			else
+				Error("File does not exist: [path]                ")
+
+	def changeTab(sender, e)
+		tlab = sender to XTabLabel
+		raise .changeFile, ChangeFileEventArgs(tlab.file)
+
+	def closeTab(sender, e)
+		removeTab = XTabLabel("this")
+		for tab in .tabList
+			if tab is sender.parent
+				removeTab = tab
+		removeTab.destroy
+		.tabList.remove(removeTab)

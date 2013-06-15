@@ -1,0 +1,21 @@
+#@args -out:icons.dll -t:lib
+#@args -sharp-args:"-resource:icons/*.png"
+#mcs -resource:sample.gif -t:library -out:icons.dll
+
+use System.IO
+use System.Diagnostics
+use Cobra.Core
+
+class IconsDLLMaker
+	def main is shared has STAThread
+		#Directory.setCurrentDirectory(Path.combine(Directory.getCurrentDirectory,"icons"))
+		#print Directory.getCurrentDirectory
+		files = Directory.getFiles(Directory.getCurrentDirectory)
+		names = StringBuilder()
+		for i in files
+			if Path.getExtension(i) == ".png"
+				names.append(" -sharp-args:-resource:")
+				names.append(Path.getFileName(i))
+		#print names
+		proc = Process()
+		print CobraCore.runCobraExe("icons.cobra -out:icons.dll -t:lib [names]",out proc)

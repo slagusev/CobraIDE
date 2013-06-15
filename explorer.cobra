@@ -1,0 +1,229 @@
+use Gtk
+use Gdk
+use System.IO
+use System.Reflection
+
+enum FileType
+	NONE
+	PROJECT
+	DIRECTORY
+	FILE
+	IMAGE
+	MUSIC
+	XML
+	JSON
+
+class ExplorerItem
+	pro ftype from var as FileType
+	pro path from var as String
+	cue init(apath as String)
+		base.init
+		.ftype = FileType.NONE
+		.path = apath
+
+class Project inherits ExplorerItem
+	cue init(apath as String)
+		base.init(apath as String)
+		.ftype = FileType.PROJECT
+		.path = apath
+
+class Dir inherits ExplorerItem
+	cue init(apath as String)
+		base.init(apath as String)
+		.ftype = FileType.DIRECTORY
+
+class File inherits ExplorerItem
+	cue init(apath as String)
+		base.init(apath as String)
+		.ftype = FileType.FILE
+		#extension = Path.GetExtension(path)
+
+sig CurrentItemEventHandler(sender as System.Object, e as CurrentItemEventArgs)
+class CurrentItemEventArgs inherits EventArgs
+	var item as ExplorerItem
+	cue init(item as ExplorerItem)
+		base.init
+		.item = item
+
+class Explorer inherits ScrolledWindow
+	var _root as TreeStore
+	var _tv as TreeView
+	var _prjList = []
+	var projectIcon as Pixbuf
+	var dirIcon as Pixbuf
+	var fileIcon as Pixbuf
+	var currentItem as ExplorerItem
+	event currentFileEvent as CurrentFileEventHandler
+	event currentItemEvent as CurrentItemEventHandler
+	cue init
+		base.init
+		.widthRequest = 15
+		.setPolicy(PolicyType.Automatic,PolicyType.Automatic)
+		.currentItem = ExplorerItem("C:")
+		icons = Assembly.loadFrom("icons.dll")
+		.projectIcon = Pixbuf(icons,"prj.png")
+		.dirIcon = Pixbuf(icons,"folder.png")
+		.fileIcon = Pixbuf(icons,"file.png")
+		_root = TreeStore(ExplorerItem.getType)
+		_tv= TreeView(_root)
+		_tv.enableSearch = true
+		_tv.headersClickable = true
+		_tv.headersVisible = true
+		#_tv.hoverExpand = true
+		#_tv.rubberBanding = true
+		_tv.searchEntry = Entry("enter search text")
+		listen _tv.selection.changed , ref .onSelectionChanged
+		listen _tv.rowActivated , ref .doubleClicked
+		_tv.addEvents(EventMask.ButtonPressMask to int)
+		listen _tv.buttonPressEvent , ref .rightClicked
+		#_tv.enterNotify
+		#MoveCursor
+		.initColumn
+		.add(_tv)
+		.addProject("C:/CODE/CobraIDE")
+		
+	def initColumn
+		projectColumn = TreeViewColumn()
+        projectColumn.title = "Explorer"
+		projectColumn.sizing = TreeViewColumnSizing.Autosize
+		projectColumn.expand = true
+		projectColumn.resizable = true
+		#renderer.Editable = true;
+		#renderer.Edited += OnTaskNameEdited;
+		icon = CellRendererPixbuf()
+		cell = CellRendererText()
+		projectColumn.packStart(icon, false)
+        projectColumn.packStart(cell, true)
+		projectColumn.setCellDataFunc(icon, TreeCellDataFunc(ref .renderIcon))
+		projectColumn.setCellDataFunc(cell, TreeCellDataFunc(ref .renderName))
+		_tv.appendColumn(projectColumn)
+
+	def initProjects
+		if Config.projects.count <> 0
+			for prj in Config.projects
+				.createProject(prj)
+
+	def createProject(prj as String)
+		pass 
+	#Important all projects must go through this       
+	/#			
+    def createProject(self,startDir):
+        if(ospathexists(startDir)):
+            if self.projects != None:
+                if(startDir in self.projects):#will work even if list is empty
+                    QMessageBox.about(self, "Already Open","Project Already Open\n"+startDir)
+                    return False
+            self.projects.append(startDir)
+            self.addProject(startDir)
+            config.setProject(self.projects)
+
+            return True
+
+            #print "adding"+startDir
+
+        else:
+
+            #This is important very very important otherwise it will crash
+
+            if self.projects != None:
+
+                if(startDir in self.projects):
+
+                    self.projects.remove(startDir)
+
+            config.setProject(self.projects)
+
+            QMessageBox.about(self,"Can't Open Project","Project Does Not Exist %s"%startDir)
+
+            return False
+
+	#/
+
+	def renderIcon(column as TreeViewColumn, cell as CellRenderer, model as TreeModel, iter as TreeIter)
+		item = model.getValue(iter, 0) to ExplorerItem
+		cc = (cell to CellRendererPixbuf)
+		if item.ftype == FileType.PROJECT
+			cc.pixbuf = .projectIcon
+		else if item.ftype == FileType.DIRECTORY
+			cc.pixbuf = .dirIcon
+		else
+			cc.pixbuf = .fileIcon
+		#cc.stockSize = 16
+	
+	def renderName(column as TreeViewColumn, cell as CellRenderer, model as TreeModel, iter as TreeIter)
+		item = model.getValue(iter, 0) to ExplorerItem
+		cc = (cell to CellRendererText)
+		cc.text = Path.getFileName(item.path)
+
+	def addProject(prjpath as String)
+		_prjList.add(prjpath)
+		prjItem = _root.appendValues(Project(prjpath))
+		if Directory.exists(prjpath)
+			.getTree(prjItem, prjpath)
+
+	#def addProjectFromTool(sender, e as ProjectEventArgs)
+	#	.addProject(e.file)
+
+	def getTree(parent as TreeIter, path as String)
+		#For Dirs
+		dirs = Directory.getDirectories(path)
+        for dir in dirs
+			if not "." in dir #Must change this later
+				dirItem = _root.appendValues(parent, Dir(dir))
+				.getTree(dirItem, dir)
+		#For Files
+		files = Directory.getFiles(path)
+        for file in files
+			_root.appendValues(parent, File(file))
+			#print fileName
+	def contains(project as String) as bool
+        return project in Config.projects
+
+	def removeProject(item)
+		pass
+		#.prjList.remove(item.path)
+		#.delete(item)
+	def onSelectionChanged(sender, e)
+		iter = TreeIter()
+		model as TreeModel?
+		sel = sender to TreeSelection
+		if sel.getSelected(out model, out iter)
+			val = model.getValue(iter, 0)
+			.currentItem = val to ExplorerItem
+			raise .currentItemEvent,  CurrentItemEventArgs(.currentItem)
+			#if .currentItem.ftype == FileType.FILE
+			#	raise .currentFileEvent, CurrentFileEventArgs(.currentItem.path)
+
+	def doubleClicked(sender, e as RowActivatedArgs)
+		#print "row [e.path] was doubleclicked"
+		if .currentItem.ftype == FileType.FILE
+			raise .currentFileEvent, CurrentFileEventArgs(.currentItem.path)
+
+	def rightClicked(sender, e as ButtonPressEventArgs)
+		print "buttonPress"
+		#Right click
+		right = 3 to uint
+		if e.event.button == right
+			print "right click"
+			.contextMenu
+
+	def contextMenu
+		menu = Menu()
+		item = MenuItem("test")
+		#listen item.activated , ref do(sender, e)
+		#	print "test"
+		menu.append(item)
+		menu.showAll
+		menu.popup
+
+	def closeProject(item)
+		pass
+
+	def openProject(item)
+		pass
+
+	def deleteFile(item)
+		pass
+
+	def drop(item)
+		pass

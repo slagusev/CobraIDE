@@ -1,0 +1,63 @@
+use Gtk
+use System.IO
+use System.Reflection
+
+class XBar inherits HBox
+	var projectIcon as Image
+	var projectName as Label
+	var min as Button
+	var max as Button
+	var close as Button
+	#var xb as Button
+	var pName as String?
+	var fName as String?
+	cue init(centre as uint)
+		base.init
+		.pName = "None"
+		.fName = "None"
+		icons = Assembly.loadFrom("icons.dll")
+		.projectIcon =Image(icons, "prj.png")
+		.projectName = Label()
+		.projectName.text = "<b>Ink IDE</b>" #<tt>mono <big>
+		.projectName.useMarkup = true
+		.min = Button()
+		.min.image = Image(icons,"min.png")
+		.min.relief = ReliefStyle.None
+		.min.canFocus = false
+		.max = Button()
+		.max.image = Image(icons,"max.png")
+		.max.relief = ReliefStyle.None
+		.max.canFocus = false
+		.close = Button()
+		.close.image = Image(icons,"close2.png")
+		.close.canFocus = false
+		#Packing all widgets
+		.packStart(.close, false, false,0)
+		.packStart(.min, false, false,0)
+		.close.relief = ReliefStyle.None
+		.packStart(.max, false, false,0)
+		box = HBox()
+		box.packStart(.projectIcon, false, false,0)
+		box.packStart(.projectName, false, false,5)
+		.packStart(box, false, false, centre)
+		
+	def setTitle(path as String)
+		.pName = Path.getFileName(path)
+		if .pName <> nil
+			sb = StringBuilder()
+			#sb.append("<b>")
+			sb.append(.pName)
+			#sb.append("</b>")
+			.projectName.text = sb.toString
+		
+	def setFile(path as String)
+		.fName = Path.getFileName(path)
+		if .fName <> nil and .pName <> nil
+			sb = StringBuilder()
+			#sb.append("<b>")
+			sb.append(.pName)
+			#sb.append("</b>")
+			sb.append(" - ")
+			sb.append(.fName)
+			.projectName.text = sb.toString
+		

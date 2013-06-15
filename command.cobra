@@ -1,0 +1,101 @@
+"""
+Command Class used to Start Compilers And Make Utility
+"""
+use System.Threading
+use System.Diagnostics
+
+sig CommandDataEventHandler(sender as System.Object, e as CommandDataEventArgs)
+class CommandDataEventArgs inherits EventArgs
+	var data as String
+	cue init(data as String)
+		base.init
+		.data = data
+
+class Command
+	var _exe = "adb"
+	var _args = ""
+	var _psi as ProcessStartInfo
+	get isRunning from var as bool
+	event finishedEvent as EventHandler
+	event commandDataEvent as CommandDataEventHandler
+	cue init
+		base.init
+		_psi= ProcessStartInfo()
+		_psi.fileName = _exe
+		_psi.arguments = _args
+		_psi.createNoWindow = true
+		_psi.windowStyle = ProcessWindowStyle.Hidden
+		_psi.useShellExecute = false
+		_psi.redirectStandardInput = true
+		_psi.redirectStandardError = true
+		_psi.redirectStandardOutput = true
+		_psi.errorDialog = false
+
+	def newProcess as Process?
+		proc as Process?
+		try
+			proc = Process.start(_psi)
+		catch ioe as IOException
+			Logger.error("I/O Exception: [ioe.message]")
+			raise .commandDataEvent, CommandDataEventArgs("I/O Error: [ioe.message]: [_exe] [_args]")
+		return proc
+		
+	def stdout(sender as Object,e as DataReceivedEventArgs)
+		if e.data <> nil
+			raise .commandDataEvent, CommandDataEventArgs(e.data)
+		else
+			raise .commandDataEvent, CommandDataEventArgs("Finished: [_exe] [_args]")
+			raise .finishedEvent, EventArgs()
+		
+	def stderr(sender as Object,e as DataReceivedEventArgs)
+		if e.data <> nil
+			raise .commandDataEvent, CommandDataEventArgs(e.data)
+		else
+			raise .commandDataEvent, CommandDataEventArgs("Error: [_exe] [_args]")
+			raise .finishedEvent, EventArgs()
+			
+	def finished(sender, e)
+		if sender.exitCode == 0
+			_isRunning = false
+			raise .commandDataEvent, CommandDataEventArgs("Finished: [_exe] [_args]")
+			raise .finishedEvent, EventArgs()
+		else
+			_isRunning = false
+			raise .commandDataEvent, CommandDataEventArgs("Error: [_exe] [_args]")
+			raise .finishedEvent, EventArgs()
+
+	def close
+		# Must find a way to force close process
+		##if not process.hasExited
+		_isRunning = false
+		#raise .finishedEvent, EventArgs()
+		
+		#call with .check(out process)
+	def check(process as inout Process)
+		if _isRunning
+			process.waitForExit
+		else
+			process.cancelErrorRead
+			process.cancelOutputRead
+			process.close
+		
+    def start
+		using process = Process.start(_psi)
+			_isRunning = true
+			#process.enableRaisingEvents = true
+			#process.workingDirectory = Environment.currentDirectory
+			#listen process.exited, ref .finished
+			listen process.outputDataReceived, ref .stdout
+			process.beginOutputReadLine
+			listen process.errorDataReceived, ref .stderr
+			process.beginErrorReadLine
+			process.standardInput.close
+			thread = Thread(ref process.waitForExit)
+			thread.isBackground = true
+			thread.priority = ThreadPriority.AboveNormal
+			try
+				thread.start
+			catch ts as ThreadStartException
+				Logger.error("Thread Start Exception: [ts.message]")
+			catch ta as ThreadAbortException
+				Logger.error("Thread Abort Exception: [ta.message]")

@@ -1,0 +1,158 @@
+use Gtk
+use Mono.TextEditor
+use Mono.TextEditor.Highlighting
+use System.Xml
+use System.IO
+
+class Editor inherits TextEditor
+	pro file from var as String?
+	/#pro style as ColorStyle
+		get
+			return .getTextEditorData.colorStyle
+		set
+			.getTextEditorData.colorStyle = value
+	pro mime as MimeType
+		get
+			return .document.mimeType
+		set
+			.document.mimeType = value #"text/x-c++src"  "text/x-cobra"
+	#/
+	event dirtyEvent as EventHandler
+	cue init
+		base.init
+		#_file = name
+		#print .colorStyle
+		#print .getTextEditorData
+		#.document.mimeType = "text/x-c++src"
+		.document.mimeType = "text/x-cobra"
+        mode = SyntaxModeService.getSyntaxMode("text/x-c++src")
+		#print mode
+		.document.syntaxMode = mode#SyntaxMode.read(XmlReader.create("CobraSyntaxMode.xml"))
+        #print .document.syntaxMode.mimeType
+		#st = Style.loadFrom(XmlReader.create("file.xml"))
+		.setOptions
+		listen .document.documentUpdated, ref .setDirty
+		#.load
+
+	def setOptions
+		.options.colorScheme = Config.colorScheme
+        .options.enableSyntaxHighlighting = true
+        .options.highlightMatchingBracket = true
+		.options.autoIndent = true
+		.options.allowTabsAfterNonTabs = false
+		
+		.options.indentationSize = 4
+		.options.rulerColumn = 0
+		.options.tabSize = 4
+		.options.showEolMarkers = Config.showEolMarkers
+		.options.showFoldMargin = Config.showFoldMargin
+		.options.showIconMargin = Config.showIconMargin
+		.options.showInvalidLines = Config.showInvalidLines
+		.options.showLineNumberMargin = Config.showLineNumberMargin
+		.options.showRuler = Config.showRuler
+		.options.showSpaces = Config.showSpaces
+		.options.showTabs = Config.showTabs
+		.options.tabsToSpaces = Config.tabsToSpaces
+		.options.highlightCaretLine = Config.highlightCaretLine
+		.options.removeTrailingWhitespaces = Config.removeTrailingWhitespaces
+		#.options.zoom = 1.5
+		#.options.zoomIn
+		#.options.zoomOut
+		#.options.zoomReset
+		# event ->eventHandler
+		#.searchRequest.caseSensitive = true
+		#.searchRequest.wholeWordOnly = true
+		#.searchRequest.searchPattern = "this"
+		#.getTextEditorData
+		/#
+		bool 	CanEdit (int line)
+void 	ClearSelection ()
+void 	DeleteSelectedText ()
+void 	DeleteSelectedText (bool clearSelection)
+void 	Dispose ()
+int 	EnsureCaretIsNotVirtual ()
+void 	ExtendSelectionTo (DocumentLocation location)
+void 	ExtendSelectionTo (int offset)
+int 	FindCurrentWordEnd (int offset)
+int 	FindCurrentWordStart (int offset)
+SearchResult 	FindNext (bool setSelection)
+int 	FindNextSubwordOffset (int offset)
+int 	FindNextWordOffset (int offset)
+SearchResult	FindPrevious (bool setSelection)
+int 	FindPrevSubwordOffset (int offset)
+int 	FindPrevWordOffset (int offset)
+SearchResult 	GetMatchAt (int offset)
+int 	GetNextVirtualColumn (int lineNumber, int column)
+string 	GetVirtualSpaces (int lineNumber, int column)
+int 	Insert (int offset, string value)
+void 	InsertAtCaret (string text)
+bool 	IsMatchAt (int offset)
+DocumentLocation 	LogicalToVisualLocation (DocumentLocation location)
+Stream 	OpenStream ()
+delegate void 	PasteCallback (int insertionOffset, string text)
+void 	PasteText (int insertionOffset, string text)
+void 	RaiseUpdateAdjustmentsRequested ()
+void 	Remove (int offset, int count)
+int 	Replace (int offset, int count, string value)
+void 	RequestRecenter ()
+SearchResult 	SearchBackward (int fromOffset)
+SearchResult 	SearchForward (int fromOffset)
+bool 	SearchReplace (string withPattern, bool setSelection)
+int 	SearchReplaceAll (string withPattern)
+void 	SetSelection (DocumentLocation anchor, DocumentLocation lead)
+void 	SetSelection (int anchorOffset, int leadOffset)
+void 	SetSelectLines (int from, int to)
+ 	TextEditorData (Document doc)
+DocumentLocation 	VisualToLogicalLocation (DocumentLocation location)
+		#/
+		
+	def onShow(file as String)
+		_file = file
+		.load
+		
+	def reload(sender, e as ChangeFileEventArgs)
+		_file = e.file
+		.load
+		
+	def load
+        try
+            contents = System.IO.File.readAllText(_file)
+        catch ioe as IOException
+            Error('I/O Error: [ioe.message]')
+        success
+			#print "Loaded File"
+			.document.text = contents
+	
+	def save
+        try
+			System.IO.File.writeAllText(_file, .document.text)
+        catch ioe as IOException
+            Error('I/O Error: [ioe.message]')
+        success
+			pass
+			#print "Saved File"
+		
+	def setDirty(sender, e)
+		"""
+		This Checks if document is dirty when updatedEvent occurs
+		if it is dirty then ignores updateEvent and raises DirtyEvent
+		to notify the NoteBook to add * to name
+		"""
+		#print "doc update"
+		if .document.isDirty
+			ignore .document.documentUpdated, ref .setDirty
+			raise .dirtyEvent, EventArgs()
+			#print "dirty raised"
+	/#	
+	def findText(text as String)
+		pass
+		
+	def replaceText(text as String)
+		pass
+		
+	def replaceFindText(text as String)
+		pass
+		
+	def replaceAll(text as String)
+		pass
+	#/

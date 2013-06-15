@@ -1,0 +1,246 @@
+"""
+Config Class used to store all Editor Preferences in a local file
+Test: cobra -test config
+New IDEA
+Must Disable certain block of code if one value doesnt satisfy
+eg :
+if Config doesnt load
+	then editor must no set the properties using Config.show ...
+Must Use Invariants
+"""
+use System.Xml
+use System.Configuration
+use Gtk
+@ref 'System.Configuration'
+
+class Config
+	test
+		#gg as List<of String> = List<of String>()
+		#for i in 0:1
+		#	gg.add("gg[i]")
+		#Config.openedFiles = gg
+		#Directory.setCurrentDirectory(Path.combine(Directory.getCurrentDirectory,"bin"))
+		#print Directory.getCurrentDirectory
+		try
+			Config.load
+		catch
+			print "pass"
+		#print Config.os
+		#assert .fontSize.os is String?
+		#assert Config.fontSize is uint
+		#assert Config.showIndent is bool
+		#assert Config.showEolMarkers is bool
+		#gg = Object()
+		#ff = Config.openedFiles
+		#assert Config.openedFiles.count == 2
+		#print Config.openedFiles
+		#assert Config.openedFiles == ["ttt","tsts"]
+	shared
+		# Settings
+		var parent as Window
+		var __config as System.Configuration.Configuration?
+		#OS
+		pro os as String?
+			get
+				return __config.appSettings.settings["os"].value
+			set
+				__config.appSettings.settings["os"].value = value
+				.save
+
+		#ColorScheme
+		pro colorScheme as String?
+			get 
+				return __config.appSettings.settings["colorScheme"].value
+			set
+				__config.appSettings.settings["colorScheme"].value = value
+				.save
+
+		#FontName
+		pro fontName as String?
+			get 
+				return __config.appSettings.settings["fontName"].value
+			set
+				__config.appSettings.settings["fontName"].value = value
+				.save
+
+		#FontSize
+		pro fontSize as uint
+			get
+				return Convert.toUInt16(__config.appSettings.settings["fontSize"].value)
+			set
+				__config.appSettings.settings["fontSize"].value = Convert.toString(value)
+				.save
+
+		#Set Show Indentation
+		pro showIndent as bool
+			get
+				return Convert.toBoolean(__config.appSettings.settings["showIndent"].value)
+			set
+				__config.appSettings.settings["showIndent"].value = Convert.toString(value)
+				.save
+				
+		pro showEolMarkers as bool
+			get
+				return Convert.toBoolean(__config.appSettings.settings["showEolMarkers"].value)
+			set
+				__config.appSettings.settings["showEolMarkers"].value = Convert.toString(value)
+				.save
+
+		pro showFoldMargin as bool
+			get
+				return Convert.toBoolean(__config.appSettings.settings["showFoldMargin"].value)
+			set
+				__config.appSettings.settings["showFoldMargin"].value = Convert.toString(value)
+				.save
+
+		pro showIconMargin as bool
+			get
+				return Convert.toBoolean(__config.appSettings.settings["showIconMargin"].value)
+			set
+				__config.appSettings.settings["showIconMargin"].value = Convert.toString(value)
+				.save
+		pro showInvalidLines as bool
+			get
+				return Convert.toBoolean(__config.appSettings.settings["showInvalidLines"].value)
+			set
+				__config.appSettings.settings["showInvalidLines"].value = Convert.toString(value)
+				.save
+
+		pro showLineNumberMargin as bool
+			get
+				return Convert.toBoolean(__config.appSettings.settings["showLineNumberMargin"].value)
+			set
+				__config.appSettings.settings["showLineNumberMargin"].value = Convert.toString(value)
+				.save
+
+		pro showRuler as bool
+			get
+				return Convert.toBoolean(__config.appSettings.settings["showRuler"].value)
+			set
+				__config.appSettings.settings["showRuler"].value = Convert.toString(value)
+				.save
+
+		pro showSpaces as bool
+			get 
+				return Convert.toBoolean(__config.appSettings.settings["showSpaces"].value)
+			set
+				__config.appSettings.settings["showSpaces"].value = Convert.toString(value)
+				.save
+
+		pro showTabs as bool
+			get
+				return Convert.toBoolean(__config.appSettings.settings["showTabs"].value)
+			set
+				__config.appSettings.settings["showTabs"].value = Convert.toString(value)
+				.save
+
+		pro tabsToSpaces as bool
+			get
+				return Convert.toBoolean(__config.appSettings.settings["tabsToSpaces"].value)
+			set
+				__config.appSettings.settings["tabsToSpaces"].value = Convert.toString(value)
+				.save
+
+		pro highlightCaretLine as bool
+			get
+				return Convert.toBoolean(__config.appSettings.settings["tabsToSpaces"].value)
+			set
+				__config.appSettings.settings["tabsToSpaces"].value = Convert.toString(value)
+				.save
+
+		pro removeTrailingWhitespaces as bool
+			get
+				return Convert.toBoolean(__config.appSettings.settings["tabsToSpaces"].value)
+			set
+				__config.appSettings.settings["tabsToSpaces"].value = Convert.toString(value)
+				.save
+		
+		#Opened files
+		pro openedFiles as List<of String>
+			get
+				nn as List<of String> = List<of String>()
+				len = Convert.toUInt16(__config.appSettings.settings["nopen"].value)
+				if len > 0 and len < 15
+					for i in 0:len
+						f = __config.appSettings.settings["file[i]"].value
+						nn.add(f)
+				return nn
+			set
+				len = value.count
+				__config.appSettings.settings["nopen"].value = Convert.toString(len)
+				if len > 0 and len < 15
+					for i in 0:len
+						__config.appSettings.settings["file[i]"].value = value[i]
+				.save
+
+		pro projects as List<of String>
+			get
+				nn as List<of String> = List<of String>()
+				len = Convert.toUInt16(__config.appSettings.settings["npro"].value)
+				if len > 0 and len < 10
+					for i in 0:len
+						f = __config.appSettings.settings["pro[i]"].value
+						nn.add(f)
+				return nn
+			set
+				len = value.count
+				__config.appSettings.settings["npro"].value = Convert.toString(len)
+				if len > 0 and len < 10
+					for i in 0:len
+						__config.appSettings.settings["pro[i]"].value = value[i]
+				.save
+
+		pro recentProjects as List<of String>
+			get
+				nn as List<of String> = List<of String>()
+				len = Convert.toUInt16(__config.appSettings.settings["npro"].value)
+				if len > 0 and len < 10
+					for i in 0:len
+						f = __config.appSettings.settings["pro[i]"].value
+						nn.add(f)
+				return nn
+			set
+				len = value.count
+				__config.appSettings.settings["npro"].value = Convert.toString(len)
+				if len > 0 and len < 10
+					for i in 0:len
+						__config.appSettings.settings["pro[i]"].value = value[i]
+				.save
+
+		pro recentFiles as List<of String>
+			get
+				nn as List<of String> = List<of String>()
+				len = Convert.toUInt16(__config.appSettings.settings["npro"].value)
+				if len > 0 and len < 10
+					for i in 0:len
+						f = __config.appSettings.settings["pro[i]"].value
+						nn.add(f)
+				return nn
+			set
+				len = value.count
+				__config.appSettings.settings["npro"].value = Convert.toString(len)
+				if len > 0 and len < 10
+					for i in 0:len
+						__config.appSettings.settings["pro[i]"].value = value[i]
+				.save
+
+	def save is shared
+		try
+			__config.save(ConfigurationSaveMode.Modified)
+			ConfigurationManager.refreshSection("appSettings")
+			print "Saved Config File"
+		catch
+			__config = nil
+			Error.show("Can't save CobraIDE.exe.Config File")
+			print "Can't save CobraIDE.exe.Config File"
+			Application.quit
+
+	def load is shared
+		try
+			__config = ConfigurationManager.openExeConfiguration(ConfigurationUserLevel.None)
+			print "Loaded Config File"
+		catch
+			__config = nil
+			Error.show("Can't load CobraIDE.exe.Config File")
+			print "Can't Find CobraIDE.exe.Config File"
+			Application.quit

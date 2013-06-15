@@ -1,0 +1,15 @@
+cobraIDE
+splash
+xbar
+xlcd
+xtab
+xfilebar
+xtool
+explorer
+output
+overview
+#note
+editor
+config
+command
+#tool

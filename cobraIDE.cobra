@@ -1,0 +1,435 @@
+"""
+CobraIDE Main Class That is called by the cobra compiler first and some widgets
+"""
+@args -pkg:gtk-sharp-2.0 -pkg:mono-cairo -lib:bin -out:bin/cobraIDE.exe
+@ref 'Mono.TextEditor'
+@ref 'System.Configuration'
+@ref 'System.Reflection'
+@ref 'log4net'
+
+use Gtk
+use GLib
+use System.Xml
+use System.Configuration
+use System.Reflection
+use log4net
+use Cairo
+use System.Runtime.InteropServices
+
+class Error	
+	var parent as Window is shared
+	cue init(message as String)		
+		base.init		
+		.show(message)  
+
+	def show(message as String) is shared
+		md = MessageDialog(.parent,DialogFlags.Modal,MessageType.Error,ButtonsType.Ok, message)
+		md.title = "Error"		
+		md.setDefaultSize(400, 300)
+		md.modal = false		
+		md.run		
+		md.destroy
+
+class Logger
+	shared
+		var isLoaded = false
+	pro log as ILog? is shared
+		get
+			method as MethodBase?
+			method = System.Diagnostics.StackTrace().getFrame(1).getMethod
+			loggerName = StringBuilder()
+			loggerName.appendFormat("[0].[1]", method.reflectedType.fullName, method.name)
+			parameters = method.getParameters
+			parametersStr = String[](parameters.length)
+			if parameters.length > 0
+				for i in 0:parameters.length
+					parametersStr[i] = parameters[i].toString
+				loggerName.append(String.join(",",parametersStr))
+			return .getLogger(loggerName.toString)
+
+	def getLogger(loggerName as String) as ILog? is shared
+		if not .isLoaded
+			log4net.Config.XmlConfigurator.configure
+			.isLoaded = true
+		return LogManager.getLogger(loggerName)
+
+	def debug(text as String) is shared
+		.log.debug(text)
+
+	def info(text as String) is shared
+		.log.info(text)
+
+	def warn(text as String) is shared
+		.log.warn(text)
+
+	def error(text as String) is shared
+		.log.error(text)
+
+	def fatal(text as String) is shared
+		.log.fatal(text)
+
+		
+
+class FindBar inherits Frame
+	cue init
+		base.init
+		.heightRequest = 27
+		hbox = HBox()
+		btn = Button()
+		icons = Assembly.loadFrom("icons.dll")
+		img = Image(icons,"find.png")
+		btn.image = img
+		btn.hasFocus = false
+		btn.canFocus = false
+		btn.relief = ReliefStyle.None
+		hbox.packStart(btn, false, false, 0)
+		.add(hbox)
+		.show
+
+class LeftSideBar inherits VBox
+	cue init
+		base.init
+		btn = Button()
+		icons = Assembly.loadFrom("icons.dll")
+		img = Image(icons,"find.png")
+		btn.image = img
+		btn.hasFocus = false
+		btn.canFocus = false
+		btn.relief = ReliefStyle.None
+		.packStart(btn, false, false, 0)
+
+class RightSideBar inherits VBox
+	cue init
+		base.init
+		btn = Button()
+		icons = Assembly.loadFrom("icons.dll")
+		img = Image(icons,"find.png")
+		btn.image = img
+		btn.hasFocus = false
+		btn.canFocus = false
+		btn.relief = ReliefStyle.None#Half
+		#color = ColorSelection()
+		.packStart(btn, false, false, 0)
+		#.packStart(color, false, false, 0)
+		
+class Progress inherits ProgressBar
+	var mode as bool
+	var timer as uint
+	cue init
+		base.init
+		.mode = true
+		.text = ""
+		.orientation = ProgressBarOrientation.LeftToRight
+		.timer = GLib.Timeout.add(100,GLib.TimeoutHandler(ref .progressTimeout))
+
+	def onQuit
+		GLib.Source.remove(.timer)
+
+	def progressTimeout as bool
+		new_val as float
+		if .mode
+			.pulse
+		else
+			new_val = .fraction + 0.01f
+			if new_val > 1.0f
+				new_val = 0.0f
+			# Set the new value
+			fraction = new_val
+		/# As this is a timeout function, return TRUE so that it
+		   continues to get called #/
+		return true
+
+			
+class StatusBar inherits HBox
+	var type as Label
+	var lineno as Label
+	var prog as Progress
+	var find as Button
+	var about as Button
+	var console as Button
+	cue init
+		base.init
+		.homogeneous = false
+		.spacing = 5
+		.prog = Progress()
+		.type = Label()
+		.setType("Writable")
+		.lineno = Label()
+		.setLineNo("187: 27")
+		sep1 = VSeparator()
+		sep2 = VSeparator()
+		sep3 = VSeparator()
+		sep4 = VSeparator()
+		sep5 = VSeparator()
+		sep6 = VSeparator()
+		# Buttons
+		icons = Assembly.loadFrom("icons.dll")
+		.find = Button()
+		.find.image = Image(icons,"find.png")
+		.find.relief = ReliefStyle.None
+		.find.canFocus = false
+		.about = Button()
+		.about.image = Image(icons,"anchor.png")
+		.about.relief = ReliefStyle.None
+		.about.canFocus = false
+		.console = Button()
+		.console.image = Image(icons,"console.png")
+		.console.relief = ReliefStyle.None
+		.console.canFocus = false
+		#Packing all widgets
+		.packStart(sep1, false, false,0)
+		.packStart(.about, false, false,0)
+		.packStart(sep2, false, false,0)
+		.packStart(.console, false, false,0)
+		.packStart(sep3, false, false,0)
+		.packStart(.find, false, false,0)
+		.packStart(sep4, false, false,0)
+		.packStart(.type, false, false,0)
+		.packStart(sep5, false, false,0)
+		.packStart(.lineno,false,false,0)
+		.packStart(sep6, false, false,0)
+		.packStart(.prog,false,false,0)
+
+	def setType(type as String)
+		.type.text = " [type]                                       "
+
+	def setLineNo(no as String)
+		.lineno.text = " [no]     "
+
+class CobraIDE inherits Window 
+	var __version = "v0.60"
+	var xbar as XBar
+	var xfile as XFileBar
+	var xtool as XTool
+	var xtab as XTab
+	#var tools as Tools
+	var explorer as Explorer
+	#var note as Note
+	var sc as ScrolledWindow
+	var edt as Editor
+	var overview as OverView
+	var output as Output
+	var find as FindBar
+	var left as LeftSideBar
+	var right as RightSideBar
+	var status as StatusBar
+	var vpane as VPaned
+	cue init		
+		base.init("CobraIDE")
+		icons = Assembly.loadFrom("icons.dll")
+		.icon = Gdk.Pixbuf(icons,"find.png")
+		.setDefaultSize(1024, 768)
+		#.maximize
+		.fullscreen
+		.appPaintable = true
+		Error.parent = this		
+		Config.load
+		vbox = VBox(false, 0)#2
+		hbox = HBox(false, 0)#2
+		w = 0i
+		h = 0i
+		.getSize(out h, out w)
+		width as uint = (w/2) to uint
+		.xbar = XBar(width)
+		.xfile = XFileBar()
+		.xtool = XTool(width)
+		.xtab = XTab()
+		#.tools = Tools(this)
+		.explorer = Explorer()
+		#.note = Note()
+		sbox = VBox()
+		sbox.widthRequest = 85
+		sbox.heightRequest = 90
+		.sc = ScrolledWindow()
+		#.sc.widthRequest = 85
+		#.sc.heightRequest = 90
+		.sc.borderWidth = 5
+		.edt = Editor()
+		.sc.add(.edt)
+		sbox.packStart(.xfile, false, false, 0)
+		sbox.packStart(.sc, true, true, 0)
+		.overview = OverView()
+		.output = Output()
+		.find = FindBar()
+		.left = LeftSideBar()
+		.right = RightSideBar()
+		.status = StatusBar()
+
+		#The pane separating editor and output
+		.vpane = VPaned()
+		.vpane.pack1(sbox, false, false)
+		.vpane.pack2(.output, false, false)
+
+		#This is where the differnt views of differnt filetypes are Stacked
+		views = HBox()
+		views.packStart(.vpane, true, true, 0)
+		views.packStart(.overview, true, true, 0)
+		
+		# The pane separating explorer and views
+		hpane = HPaned()	
+		hpane.pack1(.explorer, false, false)
+		hpane.pack2(views, false, false)
+		vbox.packStart(.xbar, false, false, 0)
+		vbox.packStart(.xtool, false, false, 0)
+		vbox.packStart(.xtab, false, false, 0)
+		#vbox.packStart(.tools, false, false, 0)	
+		hbox.packStart(.left, false, false, 0)
+		hbox.packStart(hpane, true, true, 0)
+		hbox.packStart(.right, false, false, 0)
+		vbox.packStart(hbox, true, true, 0)
+		vbox.packStart(.find, false, false, 0)
+		vbox.packStart(.status, false, false, 0) 
+		listen .xbar.close.clicked, ref .onQuit
+		listen .deleteEvent, ref .onQuit
+		listen	.status.about.clicked, ref .onAbout
+		listen	.status.find.clicked, ref .onFind
+		listen	.status.console.clicked, ref .onConsole
+		#listen .tools.projectEvent, ref .explorer.addProjectFromTool
+		#listen .tools.openEvent, ref .note.open
+		#listen .tools.refreshEditor, ref .note.refreshEditor
+		#listen .tools.saveEvent, ref .note.save
+		#listen .tools.saveallEvent, ref .note.saveAll
+		#listen .tools.runCmd.commandDataEvent, ref .output.append
+		#listen .tools.runEvent, ref .note.currentFile
+		#listen .note.currentFileEvent, ref .tools.fileSetRun
+		#listen .note.addFileEvent, ref .xtab.addTab
+		listen .explorer.currentFileEvent, ref .xtab.addFile
+		listen .explorer.currentItemEvent, ref .setView
+		#listen .tools.runEvent, ref .setProject
+		#listen .tools.stopEvent, ref .output.clear
+		listen .xtab.changeFile, ref .edt.reload
+		#listen .exposeEvent, ref .onExpose
+		.add(vbox)
+		#Gdk.Pixmap.CreateFromXpm(this._GtkWindowSplash.GdkWindow, "Images" +
+		#System.IO.Path.DirectorySeparatorChar + "Splash.png");
+		#pixbuf = Gdk.Pixbuf(icons,"var.png")
+		#a as Gdk.Pixmap?
+		#b as Gdk.Pixmap?
+		#c as Gdk.Pixbuf?
+		#Rsvg.Tool.PixbufFromFile("ss.svg");
+		#pixbuf = Rsvg.Tool.pixbufFromFileAtSize("ss.svg",500,500)
+		#pixbuf.scale(pixbuf,0,0,300,300,0f,0f,2f,2f,Gdk.InterpType.Hyper)
+		#pixbuf.renderPixmapAndMask(out a,out b,255)
+		#.style.setBgPixmap(StateType.Normal,a)
+		.decorated = false
+		.showAll
+		.left.hide
+		.right.hide
+		.find.hide
+		.status.prog.hide
+		.output.hide
+		.overview.hide
+		.xtab.addTab("C:/CODE/tree.py")
+		.xtab.addTab("C:/CODE/mainwindow.py")
+		.xtab.addTab("C:/CODE/mainwindow.py")
+
+	def setProject(sender, e)
+		if .explorer.currentItem.ftype == FileType.FILE
+			pass #run cobra.exe on file or set Main file
+			#.note.currentFile
+		else if .explorer.currentItem.ftype == FileType.PROJECT
+			pass #run cobra.exe on file or set Main file
+
+		
+
+	def setView(sender, e as CurrentItemEventArgs)
+		#print e.item.path
+		.vpane.hide
+		#.edt.hide
+		.overview.hide
+		#.musicView.hide
+		#.imageView.hide
+		#.xmlView.hide
+		#.jsonView.hide
+		#.output.hide
+		if e.item.ftype == FileType.PROJECT
+			.overview.onShow(e.item.path)
+			.xbar.setTitle(e.item.path)
+		else if e.item.ftype == FileType.FILE
+			.vpane.show
+			.edt.show
+			.edt.onShow(e.item.path)
+			.xbar.setFile(e.item.path)
+		else if e.item.ftype == FileType.MUSIC
+			.xbar.setFile(e.item.path)
+			#.musicView.onShow(e.item.path)
+		else if e.item.ftype == FileType.IMAGE
+			.xbar.setFile(e.item.path)
+			#.imageView.onShow(e.item.path)
+		else if e.item.ftype == FileType.XML
+			.xbar.setFile(e.item.path)
+			#.xmlView.onShow(e.item.path)
+		else if e.item.ftype == FileType.JSON
+			.xbar.setFile(e.item.path)
+			#.jsonView.onShow(e.item.path)
+
+	def onConsole(sender, e)
+		.output.visible = not .output.visible
+
+	def onFind(sender, e)
+		.find.visible = not .find.visible
+
+	def onAbout(sender, e)
+		dialog = AboutDialog()		
+		dialog.programName = "CobraIDE"		
+		dialog.version = __version		
+		dialog.comments = "This is an IDE"		
+		dialog.authors = @["pyros2097","gtk2+","cobra","C#","mono"]
+		dialog.copyright = "(c) pyros2097"
+		dialog.website = "http://www.google.com/"	
+		#dialog.logo = Gdk.Pixbuf("battery.png")
+		dialog.run		
+		dialog.destroy
+
+	def onUpdate(sender, e)
+		dialog = Dialog()
+		dialog.title = "Update"
+		dialog.addButton(Stock.cancel, 1)
+		#dialog.response, ref .responseCB
+		dialog.setDefaultSize(480, 100)
+		vbox = dialog.vBox
+		hbox = HBox(false, 4)
+		vbox.packStart(hbox, true, true, 0)
+		icon = Image(Stock.dialogInfo, IconSize.Dialog)
+		hbox.packStart(icon, false, false, 0)
+		label = Label("Update v0.53: Features")
+		hbox.packStart(label, false, false, 0)
+		dialog.showAll
+		dialog.run		
+		dialog.destroy
+		
+	def onExpose(sender, e)
+        cr =  Gdk.CairoHelper.create(sender.gdkWindow)
+		width = .allocation.width
+        height = .allocation.height
+		lg3 = LinearGradient(5.0f, 5.0f,  80.0f, 360.0f)
+        lg3.addColorStop(0.1f, Color (0f, 0f, 0f, 1f) )
+        lg3.addColorStop(0.5f, Color (1f, 1f, 0f, 1f) )
+        lg3.addColorStop(0.9f, Color (0f, 0f, 0f, 1f) )
+        cr.rectangle(0, 0, width, height)
+        cr.pattern = lg3
+        cr.fill
+		lg3.destroy
+        (cr.target to IDisposable).dispose   
+        (cr to IDisposable).dispose
+
+	def onQuit(sender, e)
+		#This is to close the run process or build process
+		#.tools.close
+		Application.quit
+
+	def setFullScreen
+		pass
+		#if not Config.full
+		#	.fullscreen
+		#else
+		#	.unfullscreen
+	def main is shared has STAThread
+		Application.init
+		#Application.invoke(do)
+		spl = Splash()
+		while Application.eventsPending
+			Application.runIteration
+		CobraIDE()
+		spl.destroy
+        Application.run	

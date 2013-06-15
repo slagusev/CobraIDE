@@ -1,0 +1,171 @@
+use Gtk
+use System.Text.RegularExpressions
+use System.IO
+use System.Reflection
+
+class CloseButton inherits EventBox
+	cue init
+		base.init
+		icons = Assembly.loadFrom("icons.dll")
+		img = Image(icons,"close.png")
+		.visibleWindow = false
+		.visible = true
+		.aboveChild = true
+		.hasFocus = true
+		.canFocus = true
+		#.canDefault = true
+		.isFocus = true
+		.show
+		.add(img)
+		img.show
+		#.focusInEvent
+		#.focusOutEvent
+		#.focussed
+		#.focussGrabbed
+		#img.sensitive = false
+		#label.setSizeRequest(110, 20)
+
+class TabLabel inherits HBox
+	var label as Label
+	var btn as CloseButton
+	cue init(text as String?)
+		base.init(false,0)
+		.spacing = 0
+        .label = Label()
+		.label.text = text
+		.btn = CloseButton()
+		.packStart(.label,true,true,0)
+		.packStart(.btn,false,false,0)
+        .showAll
+
+class Note inherits Notebook
+	var target_table = @[
+		TargetEntry("text/uri-list", 0, 0)
+	]
+	var _files as List<of String>
+	event currentFileEvent as CurrentFileEventHandler
+	event addFileEvent as AddFileEventHandler
+
+	cue init
+		base.init
+		.scrollable = true
+		.widthRequest = 85
+		.heightRequest = 90
+		.borderWidth = 5
+		_files = List<of String>()
+		templist = Config.openedFiles
+		for path in templist
+			.addFile(path)
+		Drag.destSet(this, DestDefaults.All, .target_table,Gdk.DragAction.Copy)
+		listen .dragDataReceived, ref .drop
+			
+	def addLabel(text as String?) as TabLabel
+		tlab = TabLabel(text)
+		listen tlab.btn.buttonPressEvent, ref .closeTab
+		return tlab
+		
+	def setDirty(sender, e)
+		edt = sender to Editor
+		#print "NOTE: setting Dirty [edt.file]"
+		ignore edt.dirtyEvent, ref .setDirty
+		ind = .pageNum(edt.parent)
+		page = .getNthPage(ind)
+		tlab = .getTabLabel(page) to TabLabel
+		tlab.label.text = "*"+tlab.label.text
+		
+	def currentFile(sender, e)
+		sc = .currentPageWidget to ScrolledWindow
+		edt = sc.child to Editor
+		raise .currentFileEvent, CurrentFileEventArgs(edt.file)
+		
+	def open(sender, e as OpenEventArgs)
+		.addFile(e.file)
+		
+	def onShow(file as String)
+		if .nPages == 0
+			.addFile(file)
+		sc = .currentPageWidget to ScrolledWindow
+		edt = sc.child to Editor
+		edt.save
+		edt.file = file
+		edt.load
+		ind = .pageNum(edt.parent)
+		page = .getNthPage(ind)
+		tlab = .getTabLabel(page) to TabLabel
+		tlab.label.text = Path.getFileName(file)
+		
+	def onHide
+		.hide
+		.save(this, EventArgs())
+		
+	def save(sender, e)
+		if .nPages <> 0
+			sc = .currentPageWidget to ScrolledWindow
+			edt = sc.child to Editor
+			edt.save
+		
+	def saveAll(sender, e)
+		for i in 0:.nPages
+			sc = .getNthPage(i) to ScrolledWindow
+			edt = sc.child to Editor
+			edt.save
+		
+	def refreshEditor(sender, e)
+		for i in 0:.nPages
+			sc = .getNthPage(i) to ScrolledWindow
+			edt = sc.child to Editor
+			edt.setOptions
+		
+	def closeTab(sender, args)
+		sender = sender to CloseButton
+		#ignore sender.clicked, ref .closeTab
+		hbox = sender.parent to TabLabel
+		#print .nPages
+		#One Tab is always Opened No chance of closing all tabs
+		if .nPages <> 1
+			for page in 1:.nPages
+				widget = .getNthPage(page) to ScrolledWindow
+				hh = .getTabLabel(widget) to TabLabel
+				if hh is hbox
+					.removePage(page)
+		else
+			.removePage(-1)
+		
+	
+	def addFile(path as String?)
+		""" Can Add 1 File a a time and checks if file is already present"""
+		if path is not nil
+			if System.IO.File.exists(path)
+				_files.add(path)
+				raise .addFileEvent, AddFileEventArgs(path)
+				sc = ScrolledWindow()
+				#sc.borderWidth = 10
+				edt = Editor(path)
+				listen edt.dirtyEvent, ref .setDirty
+				sc.add(edt)
+				sc.setPolicy(PolicyType.Automatic,PolicyType.Automatic)
+				.appendPage(sc, .addLabel(Path.getFileName(path)))
+				.showAll
+			else
+				#Config.openedFiles = _files
+				Error("File does not exist: [path]                ")
+
+	def close(sender, e as PageRemovedArgs)
+		#e.p0
+		print e.p1
+		
+	def drop(sender, args as DragDataReceivedArgs)
+		done = false
+		#source = Drag.getSourceWidget(args.context)  
+		data = System.Text.Encoding.utf8.getString(args.selectionData.data)
+		branch args.info
+			on 0
+				uri_list = Regex.split(data, "\r\n")
+				for uriString in uri_list
+					if uriString.length > 1
+						uri = Uri(uriString)
+						.addFile(uri.absolutePath)
+				done = true
+			else
+				print "Dropped Nothing"
+		Drag.finish(args.context, done, false, args.time)

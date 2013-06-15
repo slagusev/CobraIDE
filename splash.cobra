@@ -1,0 +1,19 @@
+use Gtk
+use System.Reflection
+
+class Splash inherits Window
+	cue init
+		base.init("")
+		.defaultSize = Gdk.Size(300,200)
+		.windowPosition = WindowPosition.Center
+		.decorated = false
+		.hasFocus = false
+		.hasFrame = false
+		.keepAbove = true
+		.modal = false
+		.skipPagerHint = true
+		.skipTaskbarHint = true
+		.typeHint = Gdk.WindowTypeHint.Splashscreen
+		icons = Assembly.loadFrom("icons.dll")
+		.add(Image(icons,"find.png"))
+		.showAll
